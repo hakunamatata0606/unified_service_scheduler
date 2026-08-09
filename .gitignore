@@ -1,0 +1,13 @@
+# Go build and test output
+bin/
+coverage.out
+*.test
+
+# Local configuration
+.env
+
+# Editors and operating systems
+.idea/
+.vscode/
+.DS_Store
+

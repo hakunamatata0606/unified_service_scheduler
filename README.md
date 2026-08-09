@@ -503,4 +503,62 @@ The MVP is complete when this scenario works:
 6. Prove with automated tests that overlapping resources cannot be double-booked.
 7. Retry the first request with the same idempotency key and verify that the same appointment is returned without creating a duplicate record.
 
+## Backend development
+
+The backend scaffold uses Go, Gin, PostgreSQL, pgx, Flyway, and sqlc.
+
+### Prerequisites
+
+- Go 1.26 or newer
+- PostgreSQL
+- sqlc 1.31.1
+- Flyway CLI
+
+### Generate database code
+
+sqlc reads the upgrade schema in `db/migrations/V1__create_initial_schema.sql` and the queries in `db/queries`:
+
+```bash
+sqlc generate
+```
+
+Generated Go code is written to `internal/database/sqlc` and committed so a normal build does not require sqlc.
+
+### Apply database migrations
+
+Set the Flyway connection environment variables, then migrate:
+
+```bash
+export FLYWAY_URL='jdbc:postgresql://localhost:5432/unified_service_scheduler'
+export FLYWAY_USER='postgres'
+export FLYWAY_PASSWORD='postgres'
+flyway migrate
+```
+
+The upgrade migration is `db/migrations/V1__create_initial_schema.sql`. Its matching downgrade is `db/migrations/U1__create_initial_schema.sql`:
+
+```bash
+flyway undo
+```
+
+Flyway's `undo` command and `U` migrations require Flyway Teams. With Flyway Community, use forward-only corrective migrations in shared environments; the `U1` script can still be executed manually to reset a disposable local database.
+
+### Run the API
+
+```bash
+export DATABASE_URL='postgres://postgres:postgres@localhost:5432/unified_service_scheduler?sslmode=disable'
+go run ./cmd/api
+```
+
+The initial scaffold exposes `GET /health`. Appointment endpoints are registered and return `501 Not Implemented` until their handlers are implemented.
+
+### Build and test
+
+```bash
+go test ./...
+go build ./cmd/api
+```
+
+GitHub Actions runs sqlc generation verification, formatting, vet, race-enabled tests, and the Linux build on every push and pull request.
+
 
