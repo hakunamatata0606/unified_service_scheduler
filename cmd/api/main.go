@@ -13,7 +13,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/hakunamatata0606/unified_service_scheduler/internal/config"
-	db "github.com/hakunamatata0606/unified_service_scheduler/internal/database/sqlc"
+	"github.com/hakunamatata0606/unified_service_scheduler/internal/database"
 	"github.com/hakunamatata0606/unified_service_scheduler/internal/httpapi"
 )
 
@@ -39,7 +39,8 @@ func main() {
 		os.Exit(1)
 	}
 
-	router := httpapi.NewRouter(db.New(pool))
+	store := database.NewStore(pool)
+	router := httpapi.NewRouter(store)
 	server := &http.Server{
 		Addr:              ":" + cfg.Port,
 		Handler:           router,

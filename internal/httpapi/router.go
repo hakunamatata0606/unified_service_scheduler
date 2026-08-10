@@ -5,15 +5,15 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	db "github.com/hakunamatata0606/unified_service_scheduler/internal/database/sqlc"
+	"github.com/hakunamatata0606/unified_service_scheduler/internal/database"
 )
 
 type Handler struct {
-	queries *db.Queries
+	store *database.Store
 }
 
-func NewRouter(queries *db.Queries) *gin.Engine {
-	handler := &Handler{queries: queries}
+func NewRouter(store *database.Store) *gin.Engine {
+	handler := &Handler{store: store}
 
 	router := gin.New()
 	router.Use(gin.Logger(), gin.Recovery())
