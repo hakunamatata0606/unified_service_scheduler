@@ -15,6 +15,7 @@ import (
 	"github.com/hakunamatata0606/unified_service_scheduler/internal/config"
 	"github.com/hakunamatata0606/unified_service_scheduler/internal/database"
 	"github.com/hakunamatata0606/unified_service_scheduler/internal/httpapi"
+	"github.com/hakunamatata0606/unified_service_scheduler/internal/service"
 )
 
 func main() {
@@ -40,7 +41,8 @@ func main() {
 	}
 
 	store := database.NewStore(pool)
-	router := httpapi.NewRouter(store)
+	appointmentService := service.NewAppointmentService(store)
+	router := httpapi.NewRouter(appointmentService)
 	server := &http.Server{
 		Addr:              ":" + cfg.Port,
 		Handler:           router,

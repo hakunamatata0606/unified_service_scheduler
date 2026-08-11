@@ -547,7 +547,7 @@ Flyway's `undo` command and `U` migrations require Flyway Teams. With Flyway Com
 
 ```bash
 export DATABASE_URL='postgres://postgres:postgres@localhost:5432/unified_service_scheduler?sslmode=disable'
-go run ./cmd/api
+go run .
 ```
 
 The initial scaffold exposes `GET /health`. Appointment endpoints are registered and return `501 Not Implemented` until their handlers are implemented.
@@ -556,7 +556,7 @@ The initial scaffold exposes `GET /health`. Appointment endpoints are registered
 
 ```bash
 go test ./...
-go build ./cmd/api
+go build .
 ```
 
 GitHub Actions runs sqlc generation verification, formatting, vet, race-enabled tests, and the Linux build on every push and pull request.
