@@ -8,7 +8,13 @@ const appointmentRows = document.querySelector('#my-appointments');
 const output = document.querySelector('#output');
 const status = document.querySelector('#status');
 const loginStatus = document.querySelector('#login-status');
+const availabilityPanel = document.querySelector('#availability-panel');
+const availabilitySummary = document.querySelector('#availability-summary');
+const availabilityResources = document.querySelector('#availability-resources');
+const availableTechnicians = document.querySelector('#available-technicians');
+const availableBays = document.querySelector('#available-bays');
 let pendingAttempt;
+let availabilityTimer;
 
 function appointmentCell(value) {
   const cell = document.createElement('td');
@@ -64,6 +70,59 @@ async function loadOptions() {
   dealershipSelect.disabled = false;
 }
 
+function selectedStart() {
+  const value = form.elements.requestedStart.value;
+  if (!value) return null;
+  const start = new Date(value);
+  return Number.isNaN(start.getTime()) ? null : start;
+}
+
+async function checkAvailability() {
+  const start = selectedStart();
+  if (!start || !form.elements.dealershipId.value || !form.elements.serviceTypeId.value) {
+    availabilityPanel.className = 'availability-panel';
+    availabilitySummary.textContent = 'Choose a dealership, service, and start time to check resources.';
+    availabilityResources.hidden = true;
+    return null;
+  }
+
+  availabilityPanel.className = 'availability-panel checking';
+  availabilitySummary.textContent = 'Checking qualified technicians and compatible bays...';
+  availabilityResources.hidden = true;
+  const query = new URLSearchParams({
+    dealershipId: form.elements.dealershipId.value,
+    serviceTypeId: form.elements.serviceTypeId.value,
+    start: start.toISOString(),
+  });
+  const response = await fetch(`/api/v1/availability?${query}`);
+  const availability = await response.json();
+  if (!response.ok) throw new Error(availability.error || 'Could not check availability');
+
+  availabilityPanel.className = `availability-panel ${availability.available ? 'available' : 'unavailable'}`;
+  availabilitySummary.textContent = availability.available
+    ? `Available for the full ${availability.durationMinutes}-minute service. Both resources can be assigned.`
+    : `Unavailable for the full ${availability.durationMinutes}-minute service. Choose another time or dealership.`;
+  availableTechnicians.textContent = availability.technicians.length
+    ? availability.technicians.map((technician) => technician.name).join(', ')
+    : 'None';
+  availableBays.textContent = availability.serviceBays.length
+    ? availability.serviceBays.map((bay) => bay.name).join(', ')
+    : 'None';
+  availabilityResources.hidden = false;
+  return availability;
+}
+
+function scheduleAvailabilityCheck() {
+  clearTimeout(availabilityTimer);
+  availabilityTimer = setTimeout(() => {
+    checkAvailability().catch((error) => {
+      availabilityPanel.className = 'availability-panel unavailable';
+      availabilitySummary.textContent = error.message;
+      availabilityResources.hidden = true;
+    });
+  }, 250);
+}
+
 async function checkSession() {
   const response = await fetch('/api/auth/me');
   if (!response.ok) return false;
@@ -111,14 +170,8 @@ form.addEventListener('submit', async (event) => {
 
   status.textContent = 'Checking live availability...';
   try {
-    const query = new URLSearchParams({
-      dealershipId: payload.dealershipId,
-      serviceTypeId: payload.serviceTypeId,
-      start: payload.requestedStart,
-    });
-    const availabilityResponse = await fetch(`/api/v1/availability?${query}`);
-    const availability = await availabilityResponse.json();
-    if (!availabilityResponse.ok) throw new Error(availability.error || 'Could not check availability');
+    const availability = await checkAvailability();
+    if (!availability) throw new Error('Choose a valid dealership, service, and start time');
     if (!availability.available) {
       status.textContent = 'Not available';
       output.textContent = 'No qualified technician and compatible service bay are both free for the full service duration. Please choose another time or dealership.';
@@ -142,6 +195,10 @@ form.addEventListener('submit', async (event) => {
     output.textContent = error.message;
   }
 });
+
+form.elements.dealershipId.addEventListener('change', scheduleAvailabilityCheck);
+form.elements.serviceTypeId.addEventListener('change', scheduleAvailabilityCheck);
+form.elements.requestedStart.addEventListener('change', scheduleAvailabilityCheck);
 
 document.querySelector('#refresh-appointments').addEventListener('click', () => {
   loadAppointments().catch((error) => {

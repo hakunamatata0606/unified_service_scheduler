@@ -35,5 +35,10 @@ select { width: 100%; padding: 11px 12px; border: 1px solid #ccd5e4; border-radi
 a { color: #536dfe; font-weight: 700; text-decoration: none; }
 #status { color: #536dfe; font-weight: 750; }
 pre { min-height: 100px; margin: 0; padding: 16px; overflow: auto; border-radius: 10px; color: #dce5ff; background: #172033; }
+.availability-panel { margin: 16px 0; padding: 16px; border: 1px solid #dce3ef; border-radius: 10px; background: #f8faff; }
+.availability-panel p { margin: 8px 0 0; }
+.availability-panel.available { border-color: #75b798; background: #f0fff7; }
+.availability-panel.unavailable { border-color: #e7a1a1; background: #fff5f5; }
+.availability-panel.checking { border-color: #9aabff; }
 @media (max-width: 760px) { .admin-filter { grid-template-columns: 1fr; } }
 @media (max-width: 640px) { .container { padding: 28px 0; } .grid { grid-template-columns: 1fr; } .card { padding: 18px; } .admin-header { align-items: start; flex-direction: column; } }

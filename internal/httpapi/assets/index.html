@@ -44,7 +44,15 @@
         <label>Preferred start time
           <input name="requestedStart" type="datetime-local" required>
         </label>
-        <button>Find a time and book</button>
+        <div id="availability-panel" class="availability-panel" aria-live="polite">
+          <strong>Live availability</strong>
+          <p id="availability-summary" class="muted">Choose a dealership, service, and start time to check resources.</p>
+          <div id="availability-resources" hidden>
+            <p><strong>Qualified technicians:</strong> <span id="available-technicians"></span></p>
+            <p><strong>Compatible service bays:</strong> <span id="available-bays"></span></p>
+          </div>
+        </div>
+        <button>Book this appointment</button>
       </form>
     </section>
 

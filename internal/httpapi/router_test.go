@@ -149,6 +149,9 @@ func TestWebConsole(t *testing.T) {
 	if !strings.Contains(recorder.Body.String(), "Unified Service Scheduler") {
 		t.Fatal("expected embedded web console")
 	}
+	if !strings.Contains(recorder.Body.String(), "Live availability") {
+		t.Fatal("expected customer-facing availability panel")
+	}
 }
 
 func TestAdminPage(t *testing.T) {
