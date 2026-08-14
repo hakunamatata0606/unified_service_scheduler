@@ -10,9 +10,9 @@ This design follows the HelloInterview Delivery Framework: requirements, core en
 
 ### Functional requirements
 
-The system should allow a customer or dealership employee to:
+The system allows a signed-in customer to:
 
-1. Request a service appointment for a specific customer, vehicle, dealership, service type, and desired start time.
+1. Request a service appointment for one of their vehicles, a selected dealership, service type, and desired start time.
 2. Check that a qualified technician is available for the entire service duration.
 3. Check that a compatible service bay is available for the entire service duration.
 4. Confirm and persist an appointment associating the customer, vehicle, technician, and service bay.
@@ -20,15 +20,14 @@ The system should allow a customer or dealership employee to:
 
 ### Out of scope for the MVP
 
-- Authentication and authorization
+- Production-grade identity management and role-based admin authorization
 - Payments
 - Customer notifications
 - Cancellation and rescheduling
 - Holiday and complex working-hour rules
 - Calendar integrations
-- Customer-facing frontend
 
-The backend will be implemented fully. Swagger UI and cURL examples will act as the client layer.
+The repository includes the backend, an embedded customer booking page, and an embedded admin page.
 
 ### Non-functional requirements
 
@@ -69,7 +68,6 @@ Request:
 
 ```json
 {
-  "customerId": "customer-1",
   "vehicleId": "vehicle-1",
   "dealershipId": "dealer-1",
   "serviceTypeId": "oil-service",
@@ -77,7 +75,7 @@ Request:
 }
 ```
 
-The client provides the requested start time and a unique idempotency key for the logical booking attempt. The server calculates the end time from the service type duration. Retrying the same payload with the same key returns the original response without creating another appointment.
+The client provides the requested start time and a unique idempotency key for the logical booking attempt. The authenticated user supplies the customer identity; the server verifies vehicle ownership and calculates the end time from the service type duration. Retrying the same payload with the same key returns the original response without creating another appointment.
 
 Successful response:
 
@@ -138,6 +136,17 @@ Example response:
   ]
 }
 ```
+
+### Booking form reference data
+
+```http
+GET /api/v1/vehicles
+GET /api/v1/service-types
+GET /api/v1/dealerships
+GET /api/v1/my/appointments
+```
+
+`vehicles` returns only vehicles owned by the signed-in customer. The service and dealership lists populate the remaining booking choices. `my/appointments` returns only appointments registered to the signed-in customer's record, including the assigned technician and service bay.
 
 ### Error responses
 
@@ -279,7 +288,7 @@ Responsible for HTTP routing, request validation, response formatting, status co
 
 ### Booking Service
 
-Responsible for orchestrating the booking process, calculating the appointment duration, starting the transaction, and persisting the appointment.
+Responsible for orchestrating booking rules and mapping database outcomes to API-level results. The database store owns the atomic booking transaction.
 
 ### Availability Service
 
@@ -535,6 +544,23 @@ export FLYWAY_PASSWORD='postgres'
 flyway migrate
 ```
 
+The schema consists of `V1__create_initial_schema.sql` and
+`V2__add_users.sql`. Run all migrations before loading demo data. For local demo
+data used by the embedded booking page, run:
+
+```bash
+psql "$DATABASE_URL" -f db/seed.sql
+```
+
+The demo login is `demo@example.com` / `demo123`.
+
+To generate a larger local dataset (25 dealerships, 1,000 customers, 2,000
+vehicles, 500 technicians, 250 bays, and 5,000 appointments), run:
+
+```bash
+psql "$DATABASE_URL" -f db/seed_large.sql
+```
+
 The upgrade migration is `db/migrations/V1__create_initial_schema.sql`. Its matching downgrade is `db/migrations/U1__create_initial_schema.sql`:
 
 ```bash
@@ -550,7 +576,12 @@ export DATABASE_URL='postgres://postgres:postgres@localhost:5432/unified_service
 go run .
 ```
 
-The initial scaffold exposes `GET /health`. Appointment endpoints are registered and return `501 Not Implemented` until their handlers are implemented.
+Open `http://localhost:8080` and sign in with the demo account. The user chooses
+one of their vehicles, a dealership, a service, and a desired start time. The UI
+checks live availability and generates an `Idempotency-Key`; the backend
+rechecks availability, derives the full interval from the database service
+duration, assigns both resources, and persists the confirmed appointment in one
+transaction. Open `http://localhost:8080/admin` for the operational view.
 
 ### Build and test
 

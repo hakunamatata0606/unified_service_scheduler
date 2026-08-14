@@ -60,6 +60,10 @@ func (s *appointmentStoreStub) ListAppointmentsByDealership(context.Context, db.
 	return nil, s.err
 }
 
+func (s *appointmentStoreStub) GetServiceType(context.Context, pgtype.UUID) (db.ServiceType, error) {
+	return db.ServiceType{DurationMinutes: 60}, s.err
+}
+
 func TestCreateAppointmentSelectsAvailableResources(t *testing.T) {
 	technicianID := testUUID(1)
 	serviceBayID := testUUID(2)
@@ -90,6 +94,25 @@ func TestCreateAppointmentSelectsAvailableResources(t *testing.T) {
 		t.Fatal("expected generated appointment id")
 	}
 	_ = appointment
+}
+
+func TestCreateAppointmentUsesServerSideServiceDuration(t *testing.T) {
+	store := &appointmentStoreStub{
+		technicians: []db.Technician{{ID: testUUID(1)}},
+		serviceBays: []db.ServiceBay{{ID: testUUID(2)}},
+	}
+	appointmentService := NewAppointmentService(store)
+	input := CreateAppointmentInput{
+		CustomerID: testUUID(3), VehicleID: testUUID(4), DealershipID: testUUID(5),
+		ServiceTypeID: testUUID(6), StartTimeUtc: testTime(9), EndTimeUtc: testTime(20),
+	}
+
+	if _, err := appointmentService.CreateAppointment(context.Background(), "duration-test", input); err != nil {
+		t.Fatalf("CreateAppointment returned error: %v", err)
+	}
+	if got, want := store.createParams.EndTimeUtc.Time, testTime(10).Time; !got.Equal(want) {
+		t.Fatalf("expected server-derived end %v, got %v", want, got)
+	}
 }
 
 func TestCreateAppointmentReturnsNoAvailability(t *testing.T) {

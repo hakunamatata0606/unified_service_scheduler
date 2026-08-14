@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Appointments admin</title>
+  <link rel="stylesheet" href="/assets/styles.css">
+</head>
+<body>
+  <main class="container wide">
+    <header class="admin-header">
+      <div>
+        <p class="eyebrow">Unified Service Scheduler</p>
+        <h1>Appointments</h1>
+        <p class="muted">View confirmed bookings, assigned resources, and technician availability.</p>
+      </div>
+      <div class="admin-actions">
+        <label>Dealership <select id="admin-dealership" disabled><option>Loading...</option></select></label>
+        <span id="user-label" class="muted"></span>
+        <button id="logout">Sign out</button><button id="refresh">Refresh</button>
+      </div>
+    </header>
+    <section class="card">
+      <div class="output-heading"><h2>Recent bookings</h2><span id="status"></span></div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Appointment</th><th>Vehicle / customer</th><th>Service</th><th>Technician</th><th>Bay</th><th>Dealership</th><th>Start</th><th>End</th><th>Status</th></tr></thead>
+          <tbody id="appointments"><tr><td colspan="9" class="muted">Loading appointments...</td></tr></tbody>
+        </table>
+      </div>
+    </section>
+    <section class="card">
+      <div class="output-heading"><h2>Technician availability</h2><span id="technician-status"></span></div>
+      <form id="technician-filter" class="admin-filter">
+        <label>Service
+          <select name="serviceTypeId"><option>Loading services...</option></select>
+        </label>
+        <label>From <input name="from" type="datetime-local" required></label>
+        <label>To <input name="to" type="datetime-local" required></label>
+        <button>Check slots</button>
+      </form>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Technician</th><th>Skills</th><th>Available</th></tr></thead>
+          <tbody id="technicians"><tr><td colspan="3" class="muted">Choose a time to check slots.</td></tr></tbody>
+        </table>
+      </div>
+    </section>
+    <p><a href="/">&larr; Book another service</a></p>
+  </main>
+  <script src="/assets/admin.js"></script>
+  <script src="/assets/technicians.js"></script>
+</body>
+</html>

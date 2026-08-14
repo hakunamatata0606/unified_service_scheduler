@@ -12,6 +12,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
+	"github.com/hakunamatata0606/unified_service_scheduler/internal/database"
 	db "github.com/hakunamatata0606/unified_service_scheduler/internal/database/sqlc"
 	"github.com/hakunamatata0606/unified_service_scheduler/internal/service"
 )
@@ -19,6 +20,7 @@ import (
 type appointmentStoreStub struct {
 	appointment          db.Appointment
 	appointments         []db.Appointment
+	customerAppointments []service.AppointmentDetail
 	technicians          []db.Technician
 	serviceBays          []db.ServiceBay
 	err                  error
@@ -30,6 +32,7 @@ type appointmentStoreStub struct {
 	gotListStart         pgtype.Timestamptz
 	gotListEnd           pgtype.Timestamptz
 	gotAvailabilityInput bool
+	gotCustomerID        pgtype.UUID
 	idempotency          db.IdempotencyRequest
 }
 
@@ -58,12 +61,12 @@ func (s *appointmentStoreStub) CompleteIdempotencyRequest(context.Context, db.Co
 	return s.idempotency, s.err
 }
 
-func (s *appointmentStoreStub) GetAvailability(ctx context.Context, dealershipID, serviceTypeID pgtype.UUID, start, end pgtype.Timestamptz) (service.Availability, error) {
+func (s *appointmentStoreStub) GetAvailability(ctx context.Context, dealershipID, serviceTypeID pgtype.UUID, start pgtype.Timestamptz) (service.Availability, error) {
 	s.gotContext = ctx
 	s.gotAvailabilityInput = true
 	return service.Availability{
 		Available:       len(s.technicians) > 0 && len(s.serviceBays) > 0,
-		DurationMinutes: int(end.Time.Sub(start.Time).Minutes()),
+		DurationMinutes: 90,
 		Technicians:     s.technicians,
 		ServiceBays:     s.serviceBays,
 	}, s.err
@@ -75,6 +78,47 @@ func (s *appointmentStoreStub) ListAppointments(ctx context.Context, dealershipI
 	s.gotListStart = start
 	s.gotListEnd = end
 	return s.appointments, s.err
+}
+
+func (s *appointmentStoreStub) ListAppointmentDetails(context.Context, pgtype.UUID, pgtype.Timestamptz, pgtype.Timestamptz) ([]service.AppointmentDetail, error) {
+	return nil, s.err
+}
+
+func (s *appointmentStoreStub) ListCustomerAppointments(_ context.Context, customerID pgtype.UUID) ([]service.AppointmentDetail, error) {
+	s.gotCustomerID = customerID
+	return s.customerAppointments, s.err
+}
+
+func (s *appointmentStoreStub) ListTechnicianAvailability(context.Context, pgtype.UUID, pgtype.UUID, pgtype.Timestamptz, pgtype.Timestamptz) ([]service.TechnicianAvailability, error) {
+	return nil, s.err
+}
+
+func (s *appointmentStoreStub) ListVehicles(context.Context, pgtype.UUID) ([]db.Vehicle, error) {
+	return nil, s.err
+}
+
+func (s *appointmentStoreStub) ListServiceTypes(context.Context) ([]db.ServiceType, error) {
+	return nil, s.err
+}
+
+func (s *appointmentStoreStub) ListDealerships(context.Context) ([]db.Dealership, error) {
+	return nil, s.err
+}
+
+type authServiceStub struct {
+	user database.User
+}
+
+func (s *authServiceStub) Login(context.Context, string, string) (database.User, error) {
+	return s.user, nil
+}
+
+func (s *authServiceStub) GetUser(context.Context, pgtype.UUID) (database.User, error) {
+	return s.user, nil
+}
+
+func (s *authServiceStub) ListVehicles(context.Context, pgtype.UUID) ([]db.Vehicle, error) {
+	return nil, nil
 }
 
 func TestHealth(t *testing.T) {
@@ -89,6 +133,36 @@ func TestHealth(t *testing.T) {
 	}
 	if recorder.Body.String() != "{\"status\":\"ok\"}" {
 		t.Fatalf("unexpected response body: %s", recorder.Body.String())
+	}
+}
+
+func TestWebConsole(t *testing.T) {
+	router := NewRouter(nil)
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, "/", nil)
+
+	router.ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d", http.StatusOK, recorder.Code)
+	}
+	if !strings.Contains(recorder.Body.String(), "Unified Service Scheduler") {
+		t.Fatal("expected embedded web console")
+	}
+}
+
+func TestAdminPage(t *testing.T) {
+	router := NewRouter(nil)
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, "/admin", nil)
+
+	router.ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d", http.StatusOK, recorder.Code)
+	}
+	if !strings.Contains(recorder.Body.String(), "Appointments") {
+		t.Fatal("expected admin page")
 	}
 }
 
@@ -178,10 +252,7 @@ func TestCreateAppointment(t *testing.T) {
 		"vehicleId":"02000000-0000-0000-0000-000000000000",
 		"dealershipId":"03000000-0000-0000-0000-000000000000",
 		"serviceTypeId":"04000000-0000-0000-0000-000000000000",
-		"technicianId":"05000000-0000-0000-0000-000000000000",
-		"serviceBayId":"06000000-0000-0000-0000-000000000000",
-		"requestedStart":"2026-08-12T02:00:00Z",
-		"requestedEnd":"2026-08-12T03:30:00Z"
+		"requestedStart":"2026-08-12T02:00:00Z"
 	}`))
 	request.Header.Set("Content-Type", "application/json")
 	request.Header.Set("Idempotency-Key", "create-appointment-test")
@@ -194,11 +265,14 @@ func TestCreateAppointment(t *testing.T) {
 	if recorder.Body.String() != mustJSON(created) {
 		t.Fatalf("expected body %s, got %s", mustJSON(created), recorder.Body.String())
 	}
-	if store.gotCreateInput.CustomerID != ids.customer || store.gotCreateInput.TechnicianID != ids.technician || store.gotCreateInput.ServiceBayID != ids.serviceBay {
+	if store.gotCreateInput.CustomerID != ids.customer || store.gotCreateInput.VehicleID != testUUID(2) || store.gotCreateInput.DealershipID != ids.dealership {
 		t.Fatalf("unexpected create input: %+v", store.gotCreateInput)
 	}
-	if !store.gotCreateInput.StartTimeUtc.Valid || !store.gotCreateInput.EndTimeUtc.Valid {
-		t.Fatal("expected valid appointment interval")
+	if !store.gotCreateInput.StartTimeUtc.Valid || store.gotCreateInput.EndTimeUtc.Valid {
+		t.Fatal("expected only the requested start time from the HTTP handler")
+	}
+	if store.gotCreateInput.TechnicianID.Valid || store.gotCreateInput.ServiceBayID.Valid {
+		t.Fatal("expected technician and service bay to be assigned by the backend")
 	}
 }
 
@@ -230,7 +304,7 @@ func TestGetAvailability(t *testing.T) {
 	store := &appointmentStoreStub{technicians: technicians, serviceBays: bays}
 	router := NewRouter(store)
 	recorder := httptest.NewRecorder()
-	request := httptest.NewRequest(http.MethodGet, "/api/v1/availability?dealershipId=03000000-0000-0000-0000-000000000000&serviceTypeId=04000000-0000-0000-0000-000000000000&start=2026-08-12T02:00:00Z&end=2026-08-12T03:30:00Z", nil)
+	request := httptest.NewRequest(http.MethodGet, "/api/v1/availability?dealershipId=03000000-0000-0000-0000-000000000000&serviceTypeId=04000000-0000-0000-0000-000000000000&start=2026-08-12T02:00:00Z", nil)
 
 	router.ServeHTTP(recorder, request)
 
@@ -243,6 +317,45 @@ func TestGetAvailability(t *testing.T) {
 	}
 	if !store.gotAvailabilityInput {
 		t.Fatal("expected availability queries to be called")
+	}
+}
+
+func TestListCustomerAppointments(t *testing.T) {
+	customerID := testUUID(1)
+	userID := testUUID(8)
+	appointments := []service.AppointmentDetail{{
+		Appointment: db.Appointment{ID: testUUID(7), CustomerID: customerID, Status: "confirmed"},
+		VehicleMake: "Toyota", VehicleModel: "Camry", ServiceTypeName: "Oil change",
+	}}
+	store := &appointmentStoreStub{customerAppointments: appointments}
+	auth := &authServiceStub{user: database.User{ID: userID, CustomerID: customerID, Email: "demo@example.com"}}
+	router := NewRouter(store, auth)
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, "/api/v1/my/appointments", nil)
+	request.AddCookie(&http.Cookie{Name: "session_user", Value: userID.String()})
+
+	router.ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusOK, recorder.Code, recorder.Body.String())
+	}
+	if recorder.Body.String() != mustJSON(appointments) {
+		t.Fatalf("expected body %s, got %s", mustJSON(appointments), recorder.Body.String())
+	}
+	if store.gotCustomerID != customerID {
+		t.Fatalf("expected customer %v, got %v", customerID, store.gotCustomerID)
+	}
+}
+
+func TestListCustomerAppointmentsRequiresLogin(t *testing.T) {
+	router := NewRouter(&appointmentStoreStub{})
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, "/api/v1/my/appointments", nil)
+
+	router.ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusUnauthorized {
+		t.Fatalf("expected status %d, got %d", http.StatusUnauthorized, recorder.Code)
 	}
 }
 

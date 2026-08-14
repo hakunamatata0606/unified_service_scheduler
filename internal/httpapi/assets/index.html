@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Book a service</title>
+  <link rel="stylesheet" href="/assets/styles.css">
+</head>
+<body>
+  <main class="container">
+    <header>
+      <p class="eyebrow">Unified Service Scheduler</p>
+      <h1>Book a service</h1>
+      <p class="muted">Choose your vehicle, dealership, service, and preferred start time. We will check live availability and assign the technician and service bay.</p>
+    </header>
+
+    <section class="card" id="login-card">
+      <h2>Sign in</h2>
+      <form id="login-form">
+        <label>Email <input name="email" type="email" value="demo@example.com" required></label>
+        <label>Password <input name="password" type="password" value="demo123" required></label>
+        <button>Sign in</button>
+      </form>
+      <p id="login-status" class="muted"></p>
+    </section>
+
+    <section class="card" id="booking-card" hidden>
+      <form id="booking-form">
+        <label>Vehicle
+          <select name="vehicleId" required disabled>
+            <option>Loading vehicles...</option>
+          </select>
+        </label>
+        <label>Service
+          <select name="serviceTypeId" required disabled>
+            <option>Loading services...</option>
+          </select>
+        </label>
+        <label>Dealership
+          <select name="dealershipId" required disabled>
+            <option>Loading dealerships...</option>
+          </select>
+        </label>
+        <label>Preferred start time
+          <input name="requestedStart" type="datetime-local" required>
+        </label>
+        <button>Find a time and book</button>
+      </form>
+    </section>
+
+    <section class="card output-card" id="result-card" hidden>
+      <div class="output-heading"><h2>Booking result</h2><span id="status"></span></div>
+      <pre id="output">Your booking confirmation will appear here.</pre>
+    </section>
+
+    <section class="card" id="appointments-card" hidden>
+      <div class="output-heading">
+        <h2>My appointments</h2>
+        <button id="refresh-appointments" type="button">Refresh</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Vehicle</th><th>Service</th><th>Dealership</th><th>Technician</th><th>Bay</th><th>Time</th><th>Status</th></tr></thead>
+          <tbody id="my-appointments"><tr><td colspan="7" class="muted">Loading appointments...</td></tr></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+  <script src="/assets/app.js"></script>
+</body>
+</html>

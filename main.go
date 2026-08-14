@@ -42,7 +42,8 @@ func main() {
 
 	store := database.NewStore(pool)
 	appointmentService := service.NewAppointmentService(store)
-	router := httpapi.NewRouter(appointmentService)
+	authService := service.NewAuthService(store)
+	router := httpapi.NewRouter(appointmentService, authService)
 	server := &http.Server{
 		Addr:              ":" + cfg.Port,
 		Handler:           router,
